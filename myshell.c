@@ -4,18 +4,21 @@
 #include <unistd.h>
 #include <linux/limits.h>
 #include "LineParser.h"
-void execute(cmdLine *pCmdLine) {
-    if(execvp(pCmdLine->arguments[0], pCmdLine->arguments) == -1) {
-        perror("execv failed");
-        freeCmdLines(pCmdLine);
-        exit(1);
-    }
-    freeCmdLines(pCmdLine);
-    exit(0);
+#include <sys/types.h>
+#include <sys/wait.h>
 
+
+void execute(cmdLine *pCmdLine) {
+    execvp(pCmdLine->arguments[0], pCmdLine->arguments);
+    perror("execvp failed");
+    _exit(1);// not regular exit because we use fork and parent and child use same buffers so it could destroy his buffer.
 }
 int main(int argc,char**argv){
     char cwd[PATH_MAX];
+    int debug = 0;
+    if (argc > 1 && strcmp(argv[1], "-d") == 0) {
+        debug = 1;
+    }
     while(1){
         if(getcwd(cwd,sizeof(cwd))!=NULL){
             printf("current directory:%s\n",cwd);
@@ -31,12 +34,30 @@ int main(int argc,char**argv){
             freeCmdLines(cmd);
             break;
         }
-        execute(cmd);
+        int pid = fork();
+        if(pid == 0){
+            execute(cmd);
+        } else{
+            if (debug) {
+                fprintf(stderr, "PID: %d\n", pid);
+                fprintf(stderr, "Executing command: %s\n", cmd->arguments[0]);
+                fprintf(stderr, "Mode: %s\n", cmd->blocking ? "foreground" : "background");
+            }
+            if (cmd->blocking) {
+                int status;
+                waitpid(pid, &status, 0);
+            }
 
-       freeCmdLines(cmd);
+        // if (!WIFEXITED(status)) {
+        //     printf("pid:%d\n",pid);
+        //     printf("filename:%s\n",cmd->arguments[0]);
+        // }
+
+        freeCmdLines(cmd);
+        }   
+    
     }
     return 0;
-    
 }
 /*question 1: *execute() קורא ל־execv
 execv מחליף את התהליך שלך
