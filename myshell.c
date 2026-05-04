@@ -6,7 +6,7 @@
 #include "LineParser.h"
 #include <sys/types.h>
 #include <sys/wait.h>
-
+#include <signal.h>
 
 void execute(cmdLine *pCmdLine) {
     execvp(pCmdLine->arguments[0], pCmdLine->arguments);
@@ -47,6 +47,28 @@ int main(int argc,char**argv){
             freeCmdLines(cmd);
             break;
         }
+        if(strcmp(cmd->arguments[0], "stop") == 0){//kill function used to send signal to any process or process group.
+          kill(atoi(cmd->arguments[1]),SIGSTOP);//atoi to make the arg a number,source:https://www.geeksforgeeks.org/c/c-atoi-function/ 
+          freeCmdLines(cmd);
+          continue;
+        }
+        if(strcmp(cmd->arguments[0], "wakeup") == 0){
+          kill(atoi(cmd->arguments[1]),SIGCONT);
+          freeCmdLines(cmd);
+          continue;
+        }
+        if(strcmp(cmd->arguments[0], "ice") == 0){
+          kill(atoi(cmd->arguments[1]),SIGINT);
+          freeCmdLines(cmd);
+          continue;
+        }
+        if(strcmp(cmd->arguments[0], "nuke") == 0){
+          kill(-atoi(cmd->arguments[1]),SIGKILL);
+          freeCmdLines(cmd);
+          continue;
+        }
+
+
         int pid = fork();
         if(pid == 0){
             execute(cmd);
