@@ -56,7 +56,7 @@ int main(int argc,char**argv){
                 fprintf(stderr, "Executing command: %s\n", cmd->arguments[0]);
                 fprintf(stderr, "Mode: %s\n", cmd->blocking ? "foreground" : "background");
             }
-            if (cmd->blocking) {
+            if (cmd->blocking) {// 1 for waiting 0 means continue
                 int status;
                 waitpid(pid, &status, 0);
             }
