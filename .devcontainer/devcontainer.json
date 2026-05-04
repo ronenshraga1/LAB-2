@@ -1,0 +1,38 @@
+{
+  "name": "SPL-Ubuntu-32bit-Toolchain",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": [
+    "--cap-add=SYS_PTRACE",
+    "--security-opt",
+    "seccomp=unconfined"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode.makefile-tools",
+        "jeff-hykin.better-cpp-syntax",
+        "vscode-icons-team.vscode-icons"
+      ],
+      "settings": {
+        "files.associations": {
+          "Makefile": "makefile",
+          "*.h": "c",
+          "*.c": "c",
+          "*.s": "asm-intel"
+        },
+        "editor.formatOnSave": false,
+        "C_Cpp.default.configurationProvider": "ms-vscode.makefile-tools",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "containerEnv": {
+    "CFLAGS": "-m32",
+    "LDFLAGS": "-m32"
+  },
+  "postCreateCommand": "gcc --version && make --version && gdb --version && valgrind --version && nasm -v && echo 'int main(){return 0;}' > /tmp/test32.c && gcc -m32 /tmp/test32.c -o /tmp/test32 && file /tmp/test32 && man printf | head -n 5",
+  "remoteUser": "root"
+}
