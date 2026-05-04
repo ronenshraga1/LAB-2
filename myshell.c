@@ -30,6 +30,19 @@ int main(int argc,char**argv){
        cmdLine* cmd = parseCmdLines(buffer);
        if (cmd == NULL)
             continue;
+        if (strcmp(cmd->arguments[0], "cd") == 0) {
+            if (cmd->argCount < 2) {
+                fprintf(stderr, "cd: missing argument\n");
+            } else {
+                if (chdir(cmd->arguments[1]) == -1) {
+                    perror("cd failed");
+                }
+            }
+            freeCmdLines(cmd);
+            continue;
+        }
+        
+
         if (strcmp(cmd->arguments[0], "quit") == 0) {
             freeCmdLines(cmd);
             break;
