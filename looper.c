@@ -9,8 +9,8 @@
 void handler(int sig)
 {
 	printf("\nRecieved Signal : %s\n", strsignal(sig));
-	signal(sig, SIG_DFL);
-    raise(sig);
+	signal(sig, SIG_DFL);// gives to the linux to handle the the signal, cancels my handler
+    raise(sig);//sends it again now the linux will do the job
 
 	if (sig == SIGTSTP)
 	{
