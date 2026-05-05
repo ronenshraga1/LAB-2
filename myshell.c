@@ -107,11 +107,6 @@ int main(int argc,char**argv){
                 waitpid(pid, &status, 0);
             }
 
-        // if (!WIFEXITED(status)) {
-        //     printf("pid:%d\n",pid);
-        //     printf("filename:%s\n",cmd->arguments[0]);
-        // }
-
         freeCmdLines(cmd);
         }   
     
