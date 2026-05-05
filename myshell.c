@@ -7,8 +7,32 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+void Redirect(cmdLine *cmd){
+    if(cmd->inputRedirect){
+    int fd = open(cmd->inputRedirect,O_RDONLY);
+    if (fd < 0) {
+        perror("open output failed");
+        _exit(1);
+    }
+    dup2(fd,0);// 0 for stdin, dup 2 now refers new fd to old one
+    close(fd);
+    }
+    if(cmd->outputRedirect){
+        int fd = open(cmd->outputRedirect,O_WRONLY |O_CREAT|O_TRUNC,0644); // 0644 is like: 06 owner r&w, group:r,other:r.https://stackoverflow.com/questions/18415904/what-does-mode-t-0644-mean
+        if (fd < 0) {
+            perror("open output failed");
+            _exit(1);
+        }
+        dup2(fd,1);
+        close(fd);
+    }
+}
 
 void execute(cmdLine *pCmdLine) {
+    Redirect(pCmdLine);
     execvp(pCmdLine->arguments[0], pCmdLine->arguments);
     perror("execvp failed");
     _exit(1);// not regular exit because we use fork and parent and child use same buffers so it could destroy his buffer.
