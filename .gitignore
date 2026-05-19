@@ -1,0 +1,10 @@
+# Build outputs
+*.o
+*.out
+
+/myshell
+/mypipe
+/looper
+/Printers
+/pipe
+/shell
