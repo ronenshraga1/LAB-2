@@ -113,11 +113,3 @@ int main(int argc,char**argv){
     }
     return 0;
 }
-/*question 1: *execute() קורא ל־execv
-execv מחליף את התהליך שלך
-ה־shell שלך נעלם
-רק ls רץ
-
-👉 לכן הלולאה “נגמרת” למרות שהיא אינסופית */
-/*question 2: execv doesnt look at enviroment so it tries to see file ls but it doesnt exist
-execvp for example looks at env and ls will work there*/
