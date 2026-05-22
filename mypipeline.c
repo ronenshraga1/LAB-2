@@ -41,13 +41,15 @@ int main(int argc,char **argv){
 
     if(pid2==0){
         dup2(p[0],STDIN_FILENO);
-        fprintf(stderr, "(child1>redirecting stdin  to the read end of the pipe…)\n");
+        fprintf(stderr, "(child2>redirecting stdin  to the read end of the pipe…)\n");
         close(p[0]);
         char *args[] = {"grep","5",NULL};
         fprintf(stderr, "(child2>going to execute cmd: …)\n");
         execvp("grep",args);
         perror("execvp failed");
         _exit(1);
+    } else{
+        fprintf(stderr, "(parent_process>created process with id: %i)\n", pid2);
     }
     fprintf(stderr, "(parent_process>closing the read end of the pipe…)\n"); 
     close(p[0]);

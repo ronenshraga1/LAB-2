@@ -30,6 +30,61 @@ void Redirect(cmdLine *cmd){
         close(fd);
     }
 }
+int pipe2child (cmdLine* cmd){
+    if (cmd->outputRedirect != NULL) {
+        fprintf(stderr, "error: output redirection on left side of pipe\n");
+        return 1;
+    }
+    if (cmd->next->next != NULL) {
+        fprintf(stderr, "error: only one pipe is supported\n");
+        return 1;
+    }
+
+    if (cmd->next->inputRedirect != NULL) {
+        fprintf(stderr, "error: input redirection on right side of pipe\n");
+        return 1;
+    }
+    int p[2];// writing in p[1] , reading in p[0]
+    if (pipe(p) < 0){
+        perror("pipe error");
+        return 1;
+    }
+    int pid = fork();
+    if (pid < 0) {
+        perror("fork failed");
+        return 1;
+    }
+
+    if(pid == 0){
+        dup2(p[1], STDOUT_FILENO);//dup2 also closes STDOUT_FILENO
+        close(p[1]);
+        close(p[0]);
+        Redirect(cmd);
+        execvp(cmd->arguments[0], cmd->arguments);        
+        perror("execvp failed");
+        _exit(1);
+    }
+    close(p[1]);
+    int pid2=fork();
+    if (pid2 < 0) {
+        perror("fork failed");
+        return 1;
+    }
+
+    if(pid2==0){
+        dup2(p[0],STDIN_FILENO);
+        close(p[0]);
+        Redirect(cmd->next);
+        execvp(cmd->next->arguments[0],cmd->next->arguments);
+        perror("execvp failed");
+        _exit(1);
+    }
+    close(p[0]);
+    waitpid(pid,NULL,0);
+    waitpid(pid2,NULL,0);
+    return 0;
+
+}
 
 void execute(cmdLine *pCmdLine) {
     Redirect(pCmdLine);
@@ -54,6 +109,11 @@ int main(int argc,char**argv){
        cmdLine* cmd = parseCmdLines(buffer);
        if (cmd == NULL)
             continue;
+        if(cmd->next !=NULL){
+            pipe2child(cmd);
+            freeCmdLines(cmd);
+            continue;
+        }
         if (strcmp(cmd->arguments[0], "cd") == 0) {
             if (cmd->argCount < 2) {
                 fprintf(stderr, "cd: missing argument\n");
