@@ -87,7 +87,7 @@ int main(int argc,char**argv){
           continue;
         }
         if(strcmp(cmd->arguments[0], "nuke") == 0){
-          kill(-atoi(cmd->arguments[1]),SIGKILL);
+          kill(-atoi(cmd->arguments[1]),SIGKILL);// - for process group
           freeCmdLines(cmd);
           continue;
         }

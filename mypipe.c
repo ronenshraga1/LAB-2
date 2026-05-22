@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+
 #define SIZE 2048
 
 int main(int argc,char **argv){
