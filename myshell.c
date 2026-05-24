@@ -321,13 +321,10 @@ int main(int argc,char**argv){
         }
         char buffer[2048];
         fgets(buffer,sizeof(buffer),stdin);
-        char lineToExecute[2048];
-        strcpy(lineToExecute, buffer);
-
-        if (strcmp(buffer, "history\n") == 0) {
-            printHistory(&history);
+        if (strcmp(buffer, "\n") == 0)
             continue;
-        }
+
+        char lineToExecute[2048];
 
         if (strcmp(buffer, "!!\n") == 0) {
             char* last = getLastHistory(&history);
@@ -339,9 +336,8 @@ int main(int argc,char**argv){
 
             printf("%s", last);
             strcpy(lineToExecute, last);
-            addHistory(&history, lineToExecute);
         }
-        else if (buffer[0] == '!' && buffer[1] != '\0') {
+        else if (buffer[0] == '!' && buffer[1] != '\0' && buffer[1] != '\n') {
             int number = atoi(buffer + 1);
             char* selected = getHistoryByNumber(&history, number);
 
@@ -352,16 +348,22 @@ int main(int argc,char**argv){
 
             printf("%s", selected);
             strcpy(lineToExecute, selected);
-            addHistory(&history, lineToExecute);
         }
         else {
-            addHistory(&history, lineToExecute);
+            strcpy(lineToExecute, buffer);
         }
+
+        addHistory(&history, lineToExecute);
        cmdLine* cmd = parseCmdLines(lineToExecute);
        if (cmd == NULL)
             continue;
         if(cmd->next !=NULL){
             pipe2child(cmd);
+            freeCmdLines(cmd);
+            continue;
+        }
+        if (strcmp(cmd->arguments[0], "history") == 0) {
+            printHistory(&history);
             freeCmdLines(cmd);
             continue;
         }
@@ -389,22 +391,32 @@ int main(int argc,char**argv){
             break;
         }
         if(strcmp(cmd->arguments[0], "stop") == 0){//kill function used to send signal to any process or process group.
-          kill(atoi(cmd->arguments[1]),SIGSTOP);//atoi to make the arg a number,source:https://www.geeksforgeeks.org/c/c-atoi-function/ 
+         if(kill(atoi(cmd->arguments[1]),SIGSTOP)== -1){//atoi to make the arg a number,source:https://www.geeksforgeeks.org/c/c-atoi-function/ 
+            perror("stop failed");
+          };
+            
           freeCmdLines(cmd);
           continue;
         }
         if(strcmp(cmd->arguments[0], "wakeup") == 0){
-          kill(atoi(cmd->arguments[1]),SIGCONT);
+        if(kill(atoi(cmd->arguments[1]),SIGCONT)== -1){
+            perror("wakeup failed");
+          };
+
           freeCmdLines(cmd);
           continue;
         }
         if(strcmp(cmd->arguments[0], "ice") == 0){
-          kill(atoi(cmd->arguments[1]),SIGINT);
+          if(kill(atoi(cmd->arguments[1]),SIGINT)== -1){
+            perror("ice failed");
+          };
           freeCmdLines(cmd);
           continue;
         }
         if(strcmp(cmd->arguments[0], "nuke") == 0){
-          kill(-atoi(cmd->arguments[1]),SIGKILL);// - for process group
+          if(kill(-atoi(cmd->arguments[1]),SIGKILL)== -1){
+            perror("nuke failed");
+          };// - for process group
           freeCmdLines(cmd);
           continue;
         }
