@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -9,6 +10,131 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#define TERMINATED  -1
+#define RUNNING 1
+#define SUSPENDED 0
+
+typedef struct process{
+    cmdLine* cmd;                         /* the parsed command line*/
+    pid_t pid; 		                  /* the process id that is running the command*/
+    int status;                           /* status of the process: RUNNING/SUSPENDED/TERMINATED */
+    struct process *next;	                  /* next process in chain */
+} process;
+    
+void freeProcessList(process* process_list){
+    process* curr = process_list;
+
+    while (curr != NULL) {
+        process* next = curr->next;
+        freeCmdLines(curr->cmd);
+        free(curr);
+        curr = next;
+    }
+}
+void updateProcessStatus(process* process_list, int pid, int status){    
+    process* curr = process_list;
+    while (curr != NULL) {
+        if (curr->pid == pid) {
+            curr->status = status;
+            return;
+        }
+        curr = curr->next;
+    }
+
+}
+
+void updateProcessList(process **process_list){
+    process *curr = *process_list;
+    while(curr != NULL){
+        int status;
+        pid_t result = waitpid(curr->pid,&status,WNOHANG | WUNTRACED | WCONTINUED );
+        if (result == 0) {
+            // no status change
+            curr = curr->next;
+            continue;
+
+        }
+        else if (result == -1) {
+            // maybe process already waited for, or error
+            curr = curr->next;
+            continue;
+        }
+        else{
+            if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                updateProcessStatus(*process_list,result,TERMINATED);
+            } else if(WIFSTOPPED(status)){
+                updateProcessStatus(*process_list,result,SUSPENDED);
+            } else if(WIFCONTINUED(status)){
+                updateProcessStatus(*process_list,result,RUNNING);
+            }
+        }
+        curr = curr->next;
+    }
+}
+void deleteDeadProcess(process** process_list){
+    process *curr = *process_list;
+    process *prev = NULL;
+    while (curr != NULL) {
+        if (curr->status == TERMINATED) {
+            process* to_delete = curr;
+
+            if (prev == NULL) {
+                *process_list = curr->next;
+                curr = *process_list;
+            } else {
+                prev->next = curr->next;
+                curr = curr->next;
+            }
+
+            freeCmdLines(to_delete->cmd);
+            free(to_delete);
+        } else {
+            prev = curr;
+            curr = curr->next;
+        }
+    }
+}
+void addProcess(process** process_list, cmdLine* cmd, pid_t pid){
+    process* new_process = malloc(sizeof(process));
+    if (new_process == NULL) {
+        perror("malloc failed");
+        return;
+    }
+    new_process->cmd = cmd;
+    new_process->pid = pid;
+    new_process->status = RUNNING;
+    new_process->next = *process_list;
+
+    *process_list = new_process;
+}
+void printProcessList(process** process_list){
+    updateProcessList(process_list);
+    process* curr = *process_list;
+
+    printf("PID\t\tSTATUS\t\tCommand\n");
+
+    while (curr != NULL) {
+        char* status_str;
+
+        if (curr->status == RUNNING)
+            status_str = "Running";
+        else if (curr->status == SUSPENDED)
+            status_str = "Suspended";
+        else
+            status_str = "Terminated";
+
+        printf("%d\t\t%s\t\t", curr->pid, status_str);
+
+        for (int i = 0; i < curr->cmd->argCount; i++) {
+            printf("%s ", curr->cmd->arguments[i]);
+        }
+
+        printf("\n");
+
+        curr = curr->next;    
+  }
+  deleteDeadProcess(process_list);      
+}
 
 void Redirect(cmdLine *cmd){
     if(cmd->inputRedirect){
@@ -30,7 +156,7 @@ void Redirect(cmdLine *cmd){
         close(fd);
     }
 }
-int pipe2child (cmdLine* cmd){
+int pipe2child(cmdLine* cmd){
     if (cmd->outputRedirect != NULL) {
         fprintf(stderr, "error: output redirection on left side of pipe\n");
         return 1;
@@ -94,6 +220,7 @@ void execute(cmdLine *pCmdLine) {
 }
 int main(int argc,char**argv){
     char cwd[PATH_MAX];
+    process* process_list = NULL;
     int debug = 0;
     if (argc > 1 && strcmp(argv[1], "-d") == 0) {
         debug = 1;
@@ -126,9 +253,14 @@ int main(int argc,char**argv){
             continue;
         }
         
-
+        if (strcmp(cmd->arguments[0], "procs") == 0) {
+            printProcessList(&process_list);
+            freeCmdLines(cmd);
+            continue;
+        }
         if (strcmp(cmd->arguments[0], "quit") == 0) {
             freeCmdLines(cmd);
+            freeProcessList(process_list);
             break;
         }
         if(strcmp(cmd->arguments[0], "stop") == 0){//kill function used to send signal to any process or process group.
@@ -162,12 +294,13 @@ int main(int argc,char**argv){
                 fprintf(stderr, "Executing command: %s\n", cmd->arguments[0]);
                 fprintf(stderr, "Mode: %s\n", cmd->blocking ? "foreground" : "background");
             }
+            addProcess(&process_list, cmd, pid);
             if (cmd->blocking) {// 1 for waiting 0 means continue
                 int status;
                 waitpid(pid, &status, 0);
+                updateProcessStatus(process_list, pid, TERMINATED);
             }
 
-        freeCmdLines(cmd);
         }   
     
     }
