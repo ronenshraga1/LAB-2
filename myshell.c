@@ -20,7 +20,91 @@ typedef struct process{
     int status;                           /* status of the process: RUNNING/SUSPENDED/TERMINATED */
     struct process *next;	                  /* next process in chain */
 } process;
-    
+#define HISTLEN 10
+typedef struct historyEntry {
+    int number;
+    char* line;
+} historyEntry;
+// Defining the Queue structure
+typedef struct historyQueue 
+{
+    historyEntry entries[HISTLEN];
+    int start;
+    int size;
+    int nextNumber;
+} historyQueue;
+
+void initHistory(historyQueue* h) {
+    h->start = 0;
+    h->size = 0;
+    h->nextNumber = 1;
+
+    for (int i = 0; i < HISTLEN; i++) {
+        h->entries[i].line = NULL;
+        h->entries[i].number = 0;
+    }
+}
+
+char* copyString(const char* s) {
+    char* copy = malloc(strlen(s) + 1);
+    if (copy == NULL) {
+        perror("malloc failed");
+        return NULL;
+    }
+    strcpy(copy, s);
+    return copy;
+}
+
+void addHistory(historyQueue* h, const char* line) {
+    int index;
+
+    if (h->size < HISTLEN) {
+        index = (h->start + h->size) % HISTLEN;
+        h->size++;
+    } else {
+        index = h->start;
+        free(h->entries[index].line);
+        h->start = (h->start + 1) % HISTLEN;
+    }
+
+    h->entries[index].number = h->nextNumber++;
+    h->entries[index].line = copyString(line);
+}
+
+void printHistory(historyQueue* h) {
+    for (int i = 0; i < h->size; i++) {
+        int index = (h->start + i) % HISTLEN;
+        printf("%d %s", h->entries[index].number, h->entries[index].line);
+    }
+}
+
+char* getLastHistory(historyQueue* h) {
+    if (h->size == 0) {
+        return NULL;
+    }
+
+    int index = (h->start + h->size - 1) % HISTLEN;
+    return h->entries[index].line;
+}
+
+char* getHistoryByNumber(historyQueue* h, int number) {
+    for (int i = 0; i < h->size; i++) {
+        int index = (h->start + i) % HISTLEN;
+
+        if (h->entries[index].number == number) {
+            return h->entries[index].line;
+        }
+    }
+
+    return NULL;
+}
+
+void freeHistory(historyQueue* h) {
+    for (int i = 0; i < h->size; i++) {
+        int index = (h->start + i) % HISTLEN;
+        free(h->entries[index].line);
+    }
+}    
 void freeProcessList(process* process_list){
     process* curr = process_list;
 
@@ -71,6 +155,7 @@ void updateProcessList(process **process_list){
         curr = curr->next;
     }
 }
+
 void deleteDeadProcess(process** process_list){
     process *curr = *process_list;
     process *prev = NULL;
@@ -135,6 +220,7 @@ void printProcessList(process** process_list){
   }
   deleteDeadProcess(process_list);      
 }
+
 
 void Redirect(cmdLine *cmd){
     if(cmd->inputRedirect){
@@ -221,6 +307,8 @@ void execute(cmdLine *pCmdLine) {
 int main(int argc,char**argv){
     char cwd[PATH_MAX];
     process* process_list = NULL;
+    historyQueue history;
+    initHistory(&history);
     int debug = 0;
     if (argc > 1 && strcmp(argv[1], "-d") == 0) {
         debug = 1;
@@ -233,7 +321,43 @@ int main(int argc,char**argv){
         }
         char buffer[2048];
         fgets(buffer,sizeof(buffer),stdin);
-       cmdLine* cmd = parseCmdLines(buffer);
+        char lineToExecute[2048];
+        strcpy(lineToExecute, buffer);
+
+        if (strcmp(buffer, "history\n") == 0) {
+            printHistory(&history);
+            continue;
+        }
+
+        if (strcmp(buffer, "!!\n") == 0) {
+            char* last = getLastHistory(&history);
+
+            if (last == NULL) {
+                printf("No commands in history\n");
+                continue;
+            }
+
+            printf("%s", last);
+            strcpy(lineToExecute, last);
+            addHistory(&history, lineToExecute);
+        }
+        else if (buffer[0] == '!' && buffer[1] != '\0') {
+            int number = atoi(buffer + 1);
+            char* selected = getHistoryByNumber(&history, number);
+
+            if (selected == NULL) {
+                printf("No such command in history\n");
+                continue;
+            }
+
+            printf("%s", selected);
+            strcpy(lineToExecute, selected);
+            addHistory(&history, lineToExecute);
+        }
+        else {
+            addHistory(&history, lineToExecute);
+        }
+       cmdLine* cmd = parseCmdLines(lineToExecute);
        if (cmd == NULL)
             continue;
         if(cmd->next !=NULL){
@@ -261,6 +385,7 @@ int main(int argc,char**argv){
         if (strcmp(cmd->arguments[0], "quit") == 0) {
             freeCmdLines(cmd);
             freeProcessList(process_list);
+            freeHistory(&history);
             break;
         }
         if(strcmp(cmd->arguments[0], "stop") == 0){//kill function used to send signal to any process or process group.
