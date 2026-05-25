@@ -320,7 +320,9 @@ int main(int argc,char**argv){
             perror("getcwd failed");
         }
         char buffer[2048];
-        fgets(buffer,sizeof(buffer),stdin);
+        if(fgets(buffer,sizeof(buffer),stdin) == NULL){
+            break;
+        }
         if (strcmp(buffer, "\n") == 0)
             continue;
 
@@ -390,30 +392,42 @@ int main(int argc,char**argv){
             freeHistory(&history);
             break;
         }
-        if(strcmp(cmd->arguments[0], "stop") == 0){//kill function used to send signal to any process or process group.
+        if(strcmp(cmd->arguments[0], "stop") == 0){//kill function used to send signal to any process or process group
+            if(cmd->argCount < 2) { fprintf(stderr, "stop: missing argument\n"); freeCmdLines(cmd); continue; }
          if(kill(atoi(cmd->arguments[1]),SIGSTOP)== -1){//atoi to make the arg a number,source:https://www.geeksforgeeks.org/c/c-atoi-function/ 
             perror("stop failed");
-          };
+          } else{
+            updateProcessStatus(process_list, atoi(cmd->arguments[1]), SUSPENDED);
+          }
             
           freeCmdLines(cmd);
           continue;
         }
         if(strcmp(cmd->arguments[0], "wakeup") == 0){
+            if(cmd->argCount < 2) { fprintf(stderr, "wakeup: missing argument\n"); freeCmdLines(cmd); continue; }
         if(kill(atoi(cmd->arguments[1]),SIGCONT)== -1){
             perror("wakeup failed");
-          };
+          } else {
+            updateProcessStatus(process_list, atoi(cmd->arguments[1]), RUNNING);
+        }
+
 
           freeCmdLines(cmd);
           continue;
         }
         if(strcmp(cmd->arguments[0], "ice") == 0){
+            if(cmd->argCount < 2) { fprintf(stderr, "ice: missing argument\n"); freeCmdLines(cmd); continue; }
           if(kill(atoi(cmd->arguments[1]),SIGINT)== -1){
             perror("ice failed");
-          };
+          } else {
+            updateProcessStatus(process_list, atoi(cmd->arguments[1]), TERMINATED);
+          }
+
           freeCmdLines(cmd);
           continue;
         }
         if(strcmp(cmd->arguments[0], "nuke") == 0){
+            if(cmd->argCount < 2) { fprintf(stderr, "nuke: missing argument\n"); freeCmdLines(cmd); continue; }
           if(kill(-atoi(cmd->arguments[1]),SIGKILL)== -1){
             perror("nuke failed");
           };// - for process group
