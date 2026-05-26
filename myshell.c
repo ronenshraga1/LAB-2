@@ -226,7 +226,7 @@ void Redirect(cmdLine *cmd){
     if(cmd->inputRedirect){
     int fd = open(cmd->inputRedirect,O_RDONLY);
     if (fd < 0) {
-        perror("open output failed");
+        perror("open input failed");
         _exit(1);
     }
     dup2(fd,0);// 0 for stdin, dup 2 now refers new fd to old one
@@ -292,8 +292,10 @@ int pipe2child(cmdLine* cmd){
         _exit(1);
     }
     close(p[0]);
-    waitpid(pid,NULL,0);
-    waitpid(pid2,NULL,0);
+    if (cmd->blocking) {
+        waitpid(pid,NULL,0);
+        waitpid(pid2,NULL,0);
+    }
     return 0;
 
 }
